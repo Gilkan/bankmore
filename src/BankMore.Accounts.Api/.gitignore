@@ -1,0 +1,49 @@
+# Visual Studio / Rider / JetBrains
+.vs/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+bin/
+obj/
+out/
+
+# ASP.NET Core runtime files
+*.db
+*.db-journal
+*.log
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Rider project files
+*.iml
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# OS generated
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# User-specific files
+*.swp
+*.swo
+*.tmp
+
+# ASP.NET Core published output
+publish/
+wwwroot/

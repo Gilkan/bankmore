@@ -1,0 +1,14 @@
+# Visual Studio / .NET
+bin/
+obj/
+*.user
+*.suo
+*.pdb
+*.cache
+*.log
+
+# Local database
+src/BankMore.Accounts.Api/bankmore_accounts.db
+
+# VSCode settings
+.vscode/
