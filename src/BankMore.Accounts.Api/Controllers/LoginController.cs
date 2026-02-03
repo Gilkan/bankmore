@@ -30,8 +30,8 @@ public sealed class LoginController : ControllerBase
         if (conta is null || !conta.Ativo)
             return Unauthorized();
 
-        if (!conta.ValidarSenha(dto.Senha))
-            return Unauthorized();
+        if (!conta.SenhaValida(dto.Senha))
+            return Unauthorized(new { message = "Senha inválida" });
 
         var token = _jwt.GerarToken(conta.IdContaCorrente);
 
