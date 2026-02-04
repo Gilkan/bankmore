@@ -23,16 +23,10 @@ public sealed class MovimentacoesController : ControllerBase
     {
         try
         {
-            Guid idContaToken = Guid.Empty;
-
-            if (!dto.NumeroConta.HasValue)
-            {
-                idContaToken = GetContaIdFromToken();
-            }
+            var idContaToken = GetContaIdFromToken();
 
             await _service.ExecutarAsync(
                 idContaToken,
-                dto.NumeroConta,
                 dto.IdentificacaoRequisicao,
                 dto.Valor,
                 dto.Tipo);
@@ -51,6 +45,7 @@ public sealed class MovimentacoesController : ControllerBase
             };
         }
     }
+
 
     private Guid GetContaIdFromToken()
     {

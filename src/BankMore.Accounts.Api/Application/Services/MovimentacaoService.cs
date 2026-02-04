@@ -1,7 +1,9 @@
+using System.Data;
 using BankMore.Accounts.Api.Domain;
 using BankMore.Accounts.Api.Domain.Entities;
 using BankMore.Accounts.Api.Domain.Enums;
 using BankMore.Accounts.Api.Domain.Repositories;
+using BankMore.Accounts.Api.Infrastructure.Persistence;
 
 namespace BankMore.Accounts.Api.Application.Services;
 
@@ -9,25 +11,28 @@ public sealed class MovimentacaoService : IMovimentacaoService
 {
     private readonly IContaCorrenteRepository _contaRepository;
     private readonly IMovimentoRepository _movimentoRepository;
+    private readonly SqliteConnectionFactory _factory;
 
     public MovimentacaoService(
         IContaCorrenteRepository contaRepository,
-        IMovimentoRepository movimentoRepository)
+        IMovimentoRepository movimentoRepository,
+        SqliteConnectionFactory factory)
     {
         _contaRepository = contaRepository;
         _movimentoRepository = movimentoRepository;
+        _factory = factory;
     }
 
     public async Task ExecutarAsync(
         Guid idContaToken,
-        int? numeroConta,
         string identificacaoRequisicao,
         decimal valor,
-        char tipo)
+        char tipo,
+        Guid? idTransferencia = null,
+        IDbConnection? conn = null,
+        IDbTransaction? tx = null)
     {
-        var conta = numeroConta.HasValue
-            ? await _contaRepository.ObterPorNumeroAsync(numeroConta.Value)
-            : await _contaRepository.ObterPorIdAsync(idContaToken);
+        var conta = await _contaRepository.ObterPorIdAsync(idContaToken);
 
         if (conta is null)
             throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
@@ -35,24 +40,70 @@ public sealed class MovimentacaoService : IMovimentacaoService
         if (!conta.Ativo)
             throw new DomainException("Conta inativa", "INACTIVE_ACCOUNT");
 
-        // Regra: débito só pode ser na própria conta
-        if (tipo == 'D' && conta.IdContaCorrente != idContaToken)
-            throw new DomainException("Tipo inválido", "INVALID_TYPE");
-
-        TipoMovimento tipoMovimento = tipo switch
+        var tipoMovimento = tipo switch
         {
             'C' => TipoMovimento.Credito,
             'D' => TipoMovimento.Debito,
             _ => throw new DomainException("Tipo inválido", "INVALID_TYPE")
         };
 
+        if (tipoMovimento == TipoMovimento.Debito)
+        {
+            var saldo = await _movimentoRepository
+                .CalcularSaldoAsync(conta.IdContaCorrente, conn, tx);
+
+
+            conta.ValidarDebito(saldo, valor);
+        }
+
+        var jaExiste = await _movimentoRepository
+            .ExistePorIdempotenciaAsync(
+                conta.IdContaCorrente,
+                identificacaoRequisicao,
+                conn,
+                tx);
+
+        if (jaExiste)
+            return;
 
         var movimento = Movimento.Criar(
             conta.IdContaCorrente,
             identificacaoRequisicao,
             valor,
-            tipoMovimento);
+            tipoMovimento,
+            idTransferencia);
 
-        await _movimentoRepository.InserirAsync(movimento);
+        bool criouConexao = false;
+        bool criouTransacao = false;
+
+        if (conn is null)
+        {
+            conn = _factory.Create();
+            conn.Open();
+            criouConexao = true;
+        }
+
+        if (tx is null)
+        {
+            tx = conn.BeginTransaction();
+            criouTransacao = true;
+        }
+
+
+        try
+        {
+            await _movimentoRepository.InserirAsync(
+                movimento,
+                conn,
+                tx);
+        }
+        finally
+        {
+            if (criouTransacao)
+                tx.Commit();
+
+            if (criouConexao)
+                conn.Dispose();
+        }
     }
 }

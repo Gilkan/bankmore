@@ -12,7 +12,7 @@ public sealed class JwtTokenService
 
     public JwtTokenService(IConfiguration configuration)
     {
-        _secret = configuration["Jwt:Secret"]!;
+        _secret = configuration["Jwt:SecretKey"]!;
     }
 
     public string GerarToken(Guid idContaCorrente)

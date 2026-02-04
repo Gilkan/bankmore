@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using BankMore.Accounts.Api.Application.Services;
 using BankMore.Accounts.Api.Domain;
+using System.Linq;
 
 [ApiController]
 [Route("api/[controller]")]

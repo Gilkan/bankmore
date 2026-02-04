@@ -1,41 +1,68 @@
 using BankMore.Accounts.Api.Infrastructure.Security.Users;
 using BankMore.Accounts.Api.Infrastructure.Persistence;
-
-//JWT
 using BankMore.Accounts.Api.Infrastructure.Security;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
-
 var builder = WebApplication.CreateBuilder(args);
 
-// ##USER_AS_SECURITY_PATHING
+// USER AUTH
 builder.Services.AddScoped<IUsuarioAuthClient, UsuarioAuthStub>();
 
 // Controllers
 builder.Services.AddControllers();
 
-// Swagger
+// Swagger + JWT config
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "JWT Authorization header using Bearer scheme."
+    });
 
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
+
+
+// SQLite
 builder.Services.AddSingleton(
-    new BankMore.Accounts.Api.Infrastructure.Persistence.SqliteConnectionFactory(
-        "Data Source=bankmore_accounts.db"));
+    new SqliteConnectionFactory("Data Source=bankmore_accounts.db"));
 
 builder.Services.AddSingleton<SqliteSchemaInitializer>();
 
-builder.Services.AddScoped<BankMore.Accounts.Api.Domain.Repositories.IContaCorrenteRepository,
-    BankMore.Accounts.Api.Infrastructure.Repositories.ContaCorrenteRepository>();
 
-// builder.Services.Configure<BankMore.Accounts.Api.Infrastructure.Security.JwtOptions>(
-//     builder.Configuration.GetSection("Jwt"));
+// Repositories
+builder.Services.AddScoped<
+    BankMore.Accounts.Api.Domain.Repositories.IContaCorrenteRepository,
+    BankMore.Accounts.Api.Infrastructure.Repositories.ContaCorrenteRepository>();
 
 builder.Services.AddScoped<
     BankMore.Accounts.Api.Domain.Repositories.IMovimentoRepository,
     BankMore.Accounts.Api.Infrastructure.Repositories.MovimentoRepository>();
 
+
+// Services
 builder.Services.AddScoped<
     BankMore.Accounts.Api.Application.Services.IMovimentacaoService,
     BankMore.Accounts.Api.Application.Services.MovimentacaoService>();
@@ -44,14 +71,19 @@ builder.Services.AddScoped<
     BankMore.Accounts.Api.Application.Services.ISaldoService,
     BankMore.Accounts.Api.Application.Services.SaldoService>();
 
-//JWT
+
+// JWT
+var secretKey = builder.Configuration["Jwt:SecretKey"];
+
+if (string.IsNullOrWhiteSpace(secretKey))
+    throw new InvalidOperationException("Jwt:SecretKey não configurado.");
+
+var key = Encoding.UTF8.GetBytes(secretKey);
+
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        var key = Encoding.UTF8.GetBytes(
-            builder.Configuration["Jwt:SecretKey"]!);
-
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = false,
@@ -61,22 +93,24 @@ builder.Services
             IssuerSigningKey = new SymmetricSecurityKey(key)
         };
     });
+
 builder.Services.AddAuthorization();
 builder.Services.AddSingleton<JwtTokenService>();
 
-
+builder.Services.AddScoped<IUnitOfWork, SqliteUnitOfWork>();
 
 var app = builder.Build();
 
+
+// Inicialização schema
 using (var scope = app.Services.CreateScope())
 {
     var initializer = scope.ServiceProvider
         .GetRequiredService<SqliteSchemaInitializer>();
 
-    //try {
     initializer.Initialize();
-    //} catch (Exception ex) { throw; }
 }
+
 
 // Pipeline
 if (app.Environment.IsDevelopment())
@@ -87,9 +121,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseMiddleware<BankMore.Accounts.Api.Infrastructure.Security.ExceptionMiddleware>();
+app.UseMiddleware<
+    BankMore.Accounts.Api.Infrastructure.Security.ExceptionMiddleware>();
 
-//JWT
 app.UseAuthentication();
 app.UseAuthorization();
 

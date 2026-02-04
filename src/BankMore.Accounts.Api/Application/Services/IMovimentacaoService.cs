@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 
 namespace BankMore.Accounts.Api.Application.Services;
 
@@ -6,8 +7,10 @@ public interface IMovimentacaoService
 {
     Task ExecutarAsync(
         Guid idContaToken,
-        int? numeroConta,
         string identificacaoRequisicao,
         decimal valor,
-        char tipo);
+        char tipo,
+        Guid? idTransferencia = null,
+        IDbConnection? conn = null,
+        IDbTransaction? tx = null);
 }

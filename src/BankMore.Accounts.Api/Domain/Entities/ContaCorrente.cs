@@ -93,4 +93,14 @@ public sealed class ContaCorrente
             Salt = salt
         };
     }
+
+    public void ValidarDebito(decimal saldoAtual, decimal valor)
+    {
+        const decimal limite = 0m; // TODO: substituir por persistência futura
+
+        if (saldoAtual + limite < valor)
+            throw new DomainException(
+                "Saldo insuficiente",
+                "INSUFFICIENT_FUNDS");
+    }
 }

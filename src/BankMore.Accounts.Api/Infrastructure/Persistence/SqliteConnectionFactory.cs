@@ -13,5 +13,14 @@ public sealed class SqliteConnectionFactory
     }
 
     public IDbConnection Create()
-        => new SqliteConnection(_connectionString);
+    {
+        var conn = new SqliteConnection(_connectionString);
+        conn.Open();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "PRAGMA foreign_keys = ON;";
+        cmd.ExecuteNonQuery();
+
+        return conn;
+    }
 }

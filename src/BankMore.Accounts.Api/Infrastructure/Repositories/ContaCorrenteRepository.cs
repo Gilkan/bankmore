@@ -94,21 +94,21 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
     {
         using var conn = _factory.Create();
 
-        const string sql = @"
+        const string sql = """
             SELECT
                 idcontacorrente,
                 numero,
                 nome,
                 cpf,
                 ativo,
-                senha,
+                senha as SenhaHash,
                 salt
             FROM contacorrente
             WHERE idcontacorrente = @Id
             LIMIT 1;
-        ";
+        """;
 
-        var dto = await conn.QuerySingleOrDefaultAsync<dynamic>(
+        var dto = await conn.QuerySingleOrDefaultAsync<ContaCorrenteDto>(
             sql,
             new { Id = idContaCorrente.ToString() });
 
@@ -116,13 +116,13 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
             return null;
 
         return ContaCorrente.Hydrate(
-            Guid.Parse(dto.idcontacorrente),
-            dto.numero,
-            dto.nome,
-            dto.cpf,
-            dto.ativo == 1,
-            dto.senha,
-            dto.salt
+            Guid.Parse(dto.IdContaCorrente),
+            dto.Numero,
+            dto.Nome,
+            dto.Cpf,
+            dto.Ativo,
+            dto.SenhaHash,
+            dto.Salt
         );
     }
 

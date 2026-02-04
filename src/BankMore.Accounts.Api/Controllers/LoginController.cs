@@ -24,11 +24,10 @@ public sealed class LoginController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
-        var conta = await _contaRepository
-            .ObterPorNumeroAsync(dto.NumeroConta);
+        var conta = await _contaRepository.ObterPorNumeroAsync(dto.NumeroConta);
 
         if (conta is null || !conta.Ativo)
-            return Unauthorized();
+            return Unauthorized(new { message = "Conta inválida ou inativa" });
 
         if (!conta.SenhaValida(dto.Senha))
             return Unauthorized(new { message = "Senha inválida" });
@@ -37,4 +36,5 @@ public sealed class LoginController : ControllerBase
 
         return Ok(new { token });
     }
+
 }
