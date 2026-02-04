@@ -1,6 +1,8 @@
 using System.Data;
 using BankMore.Accounts.Api.Domain.Entities;
 
+namespace BankMore.Accounts.Api.Domain.Repositories;
+
 public interface ITransferenciaRepository
 {
     Task InserirAsync(

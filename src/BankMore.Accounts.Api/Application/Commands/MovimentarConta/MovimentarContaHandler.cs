@@ -1,3 +1,4 @@
+using MediatR;
 using System.Data;
 using BankMore.Accounts.Api.Domain;
 using BankMore.Accounts.Api.Domain.Entities;
@@ -5,15 +6,16 @@ using BankMore.Accounts.Api.Domain.Enums;
 using BankMore.Accounts.Api.Domain.Repositories;
 using BankMore.Accounts.Api.Infrastructure.Persistence;
 
-namespace BankMore.Accounts.Api.Application.Services;
+namespace BankMore.Accounts.Api.Application.Commands.MovimentarConta;
 
-public sealed class MovimentacaoService : IMovimentacaoService
+public sealed class MovimentarContaHandler
+    : IRequestHandler<MovimentarContaCommand, Unit>
 {
     private readonly IContaCorrenteRepository _contaRepository;
     private readonly IMovimentoRepository _movimentoRepository;
     private readonly SqliteConnectionFactory _factory;
 
-    public MovimentacaoService(
+    public MovimentarContaHandler(
         IContaCorrenteRepository contaRepository,
         IMovimentoRepository movimentoRepository,
         SqliteConnectionFactory factory)
@@ -23,16 +25,12 @@ public sealed class MovimentacaoService : IMovimentacaoService
         _factory = factory;
     }
 
-    public async Task ExecutarAsync(
-        Guid idContaToken,
-        string identificacaoRequisicao,
-        decimal valor,
-        char tipo,
-        Guid? idTransferencia = null,
-        IDbConnection? conn = null,
-        IDbTransaction? tx = null)
+    public async Task<Unit> Handle(
+        MovimentarContaCommand request,
+        CancellationToken cancellationToken)
     {
-        var conta = await _contaRepository.ObterPorIdAsync(idContaToken);
+        var conta = await _contaRepository
+            .ObterPorIdAsync(request.IdContaCorrente);
 
         if (conta is null)
             throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
@@ -40,70 +38,50 @@ public sealed class MovimentacaoService : IMovimentacaoService
         if (!conta.Ativo)
             throw new DomainException("Conta inativa", "INACTIVE_ACCOUNT");
 
-        var tipoMovimento = tipo switch
+        var tipoMovimento = request.Tipo switch
         {
             'C' => TipoMovimento.Credito,
             'D' => TipoMovimento.Debito,
             _ => throw new DomainException("Tipo inválido", "INVALID_TYPE")
         };
 
+        using var conn = _factory.Create();
+        conn.Open();
+        using var tx = conn.BeginTransaction();
+
         if (tipoMovimento == TipoMovimento.Debito)
         {
             var saldo = await _movimentoRepository
                 .CalcularSaldoAsync(conta.IdContaCorrente, conn, tx);
 
-
-            conta.ValidarDebito(saldo, valor);
+            conta.ValidarDebito(saldo, request.Valor);
         }
 
         var jaExiste = await _movimentoRepository
             .ExistePorIdempotenciaAsync(
                 conta.IdContaCorrente,
-                identificacaoRequisicao,
+                request.IdentificacaoRequisicao,
                 conn,
                 tx);
 
         if (jaExiste)
-            return;
+        {
+            tx.Commit();
+            return Unit.Value;
+        }
 
         var movimento = Movimento.Criar(
             conta.IdContaCorrente,
-            identificacaoRequisicao,
-            valor,
+            request.IdentificacaoRequisicao,
+            request.Valor,
             tipoMovimento,
-            idTransferencia);
+            null);
 
-        bool criouConexao = false;
-        bool criouTransacao = false;
+        await _movimentoRepository
+            .InserirAsync(movimento, conn, tx);
 
-        if (conn is null)
-        {
-            conn = _factory.Create();
-            conn.Open();
-            criouConexao = true;
-        }
+        tx.Commit();
 
-        if (tx is null)
-        {
-            tx = conn.BeginTransaction();
-            criouTransacao = true;
-        }
-
-
-        try
-        {
-            await _movimentoRepository.InserirAsync(
-                movimento,
-                conn,
-                tx);
-        }
-        finally
-        {
-            if (criouTransacao)
-                tx.Commit();
-
-            if (criouConexao)
-                conn.Dispose();
-        }
+        return Unit.Value;
     }
 }

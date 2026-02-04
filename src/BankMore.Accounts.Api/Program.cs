@@ -5,6 +5,7 @@ using BankMore.Accounts.Api.Infrastructure.Security;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using MediatR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,12 +62,11 @@ builder.Services.AddScoped<
     BankMore.Accounts.Api.Domain.Repositories.IMovimentoRepository,
     BankMore.Accounts.Api.Infrastructure.Repositories.MovimentoRepository>();
 
+builder.Services.AddScoped<
+    BankMore.Accounts.Api.Domain.Repositories.ITransferenciaRepository,
+    BankMore.Accounts.Api.Infrastructure.Repositories.TransferenciaRepository>();
 
 // Services
-builder.Services.AddScoped<
-    BankMore.Accounts.Api.Application.Services.IMovimentacaoService,
-    BankMore.Accounts.Api.Application.Services.MovimentacaoService>();
-
 builder.Services.AddScoped<
     BankMore.Accounts.Api.Application.Services.ISaldoService,
     BankMore.Accounts.Api.Application.Services.SaldoService>();
@@ -98,6 +98,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddSingleton<JwtTokenService>();
 
 builder.Services.AddScoped<IUnitOfWork, SqliteUnitOfWork>();
+
+builder.Services.AddMediatR(typeof(Program).Assembly);
 
 var app = builder.Build();
 

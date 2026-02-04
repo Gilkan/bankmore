@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using BankMore.Accounts.Api.Application.Services;
+using BankMore.Accounts.Api.Application.Commands.MovimentarConta;
 using BankMore.Accounts.Api.Controllers.Dtos;
 using BankMore.Accounts.Api.Domain;
+using MediatR;
 
 namespace BankMore.Accounts.Api.Controllers;
 
@@ -11,11 +12,11 @@ namespace BankMore.Accounts.Api.Controllers;
 [Authorize]
 public sealed class MovimentacoesController : ControllerBase
 {
-    private readonly IMovimentacaoService _service;
+    private readonly IMediator _mediator;
 
-    public MovimentacoesController(IMovimentacaoService service)
+    public MovimentacoesController(IMediator mediator)
     {
-        _service = service;
+        _mediator = mediator;
     }
 
     [HttpPost]
@@ -25,24 +26,20 @@ public sealed class MovimentacoesController : ControllerBase
         {
             var idContaToken = GetContaIdFromToken();
 
-            await _service.ExecutarAsync(
-                idContaToken,
-                dto.IdentificacaoRequisicao,
-                dto.Valor,
-                dto.Tipo);
+            await _mediator.Send(
+                new MovimentarContaCommand(
+                    idContaToken,
+                    dto.IdentificacaoRequisicao,
+                    dto.Valor,
+                    dto.Tipo
+                )
+            );
 
             return NoContent();
         }
         catch (DomainException ex)
         {
-            return ex.ErrorType switch
-            {
-                "INVALID_ACCOUNT" => BadRequest(new { ex.Message, ex.ErrorType }),
-                "INACTIVE_ACCOUNT" => BadRequest(new { ex.Message, ex.ErrorType }),
-                "INVALID_VALUE" => BadRequest(new { ex.Message, ex.ErrorType }),
-                "INVALID_TYPE" => BadRequest(new { ex.Message, ex.ErrorType }),
-                _ => BadRequest(new { ex.Message })
-            };
+            return BadRequest(new { ex.Message, ex.ErrorType });
         }
     }
 

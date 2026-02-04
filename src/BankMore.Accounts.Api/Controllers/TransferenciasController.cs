@@ -1,17 +1,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using BankMore.Accounts.Api.Application.Commands.Transferir;
 using BankMore.Accounts.Api.Domain;
+using MediatR;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
 public sealed class TransferenciasController : ControllerBase
 {
-    private readonly ITransferenciaService _service;
+    private readonly IMediator _mediator;
 
-    public TransferenciasController(ITransferenciaService service)
+    public TransferenciasController(IMediator mediator)
     {
-        _service = service;
+        _mediator = mediator;
     }
 
     [HttpPost]
@@ -21,11 +23,14 @@ public sealed class TransferenciasController : ControllerBase
         {
             var idConta = GetContaIdFromToken();
 
-            await _service.ExecutarAsync(
-                idConta,
-                dto.IdentificacaoRequisicao,
-                dto.NumeroContaDestino,
-                dto.Valor);
+            await _mediator.Send(
+                new TransferirCommand(
+                    idConta,
+                    dto.IdentificacaoRequisicao,
+                    dto.NumeroContaDestino,
+                    dto.Valor
+                )
+            );
 
             return NoContent();
         }
