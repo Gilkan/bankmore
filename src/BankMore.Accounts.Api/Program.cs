@@ -1,3 +1,5 @@
+using BankMore.Accounts.Api.Application.Options;
+
 using BankMore.Accounts.Api.Infrastructure.Security.Users;
 using BankMore.Accounts.Api.Infrastructure.Persistence;
 using BankMore.Accounts.Api.Infrastructure.Security;
@@ -8,6 +10,9 @@ using System.Text;
 using MediatR;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<TarifaOptions>(
+    builder.Configuration.GetSection("Tarifa"));
 
 // USER AUTH
 builder.Services.AddScoped<IUsuarioAuthClient, UsuarioAuthStub>();
@@ -65,6 +70,10 @@ builder.Services.AddScoped<
 builder.Services.AddScoped<
     BankMore.Accounts.Api.Domain.Repositories.ITransferenciaRepository,
     BankMore.Accounts.Api.Infrastructure.Repositories.TransferenciaRepository>();
+
+builder.Services.AddScoped<
+    BankMore.Accounts.Api.Domain.Repositories.ITarifaRepository,
+    BankMore.Accounts.Api.Infrastructure.Repositories.TarifaRepository>();
 
 // Services
 builder.Services.AddScoped<

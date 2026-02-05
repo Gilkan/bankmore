@@ -98,7 +98,7 @@ public class ContasController : ControllerBase
             if (rows == 0)
                 return NotFound(new { Message = "Conta não encontrada" });
 
-            return NoContent(); // 204
+            return NoContent();
         }
         catch (DomainException ex)
         {

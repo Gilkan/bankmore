@@ -33,8 +33,8 @@ public sealed class SaldoService : ISaldoService
         {
             NumeroConta = conta.Numero,
             Nome = conta.Nome,
-            DataConsulta = DateTime.UtcNow,
-            Saldo = saldo
+            DataConsulta = DateTime.Now,
+            Saldo = saldo < 0 ? saldo : saldo
         };
     }
 }

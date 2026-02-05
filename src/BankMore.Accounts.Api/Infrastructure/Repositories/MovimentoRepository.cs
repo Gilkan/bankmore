@@ -86,9 +86,9 @@ public sealed class MovimentoRepository : IMovimentoRepository
 
 
     public async Task<decimal> CalcularSaldoAsync(
-    Guid idContaCorrente,
-    IDbConnection? conn = null,
-    IDbTransaction? tx = null)
+        Guid idContaCorrente,
+        IDbConnection? conn = null,
+        IDbTransaction? tx = null)
     {
         var ownConn = conn is null;
 
@@ -97,13 +97,29 @@ public sealed class MovimentoRepository : IMovimentoRepository
         try
         {
             return await conn.ExecuteScalarAsync<decimal>(@"
-                SELECT COALESCE(SUM(
-                    CASE WHEN tipo = 'C' THEN valor
-                        WHEN tipo = 'D' THEN -valor END),0)
-                FROM movimento
-                WHERE idcontacorrente = @id;",
-                new { id = idContaCorrente.ToString() },
-                tx);
+                SELECT
+                    (
+                        COALESCE(SUM(
+                            CASE 
+                                WHEN m.tipo = 'C' THEN m.valor
+                                WHEN m.tipo = 'D' THEN -m.valor
+                            END
+                        ), 0)
+                    )
+                    -
+                    COALESCE(
+                        (
+                            SELECT SUM(t.valor)
+                            FROM tarifa t
+                            WHERE t.idcontacorrente = @id
+                        ),
+                        0
+                    ) AS saldo
+                FROM movimento m
+                WHERE m.idcontacorrente = @id;
+            ",
+            new { id = idContaCorrente.ToString() },
+            tx);
         }
         finally
         {
