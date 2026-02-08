@@ -1,4 +1,6 @@
-# Visual Studio / .NET
+# =========================
+# .NET / Visual Studio
+# =========================
 bin/
 obj/
 *.user
@@ -6,9 +8,43 @@ obj/
 *.pdb
 *.cache
 *.log
+*.tmp
 
-# Local database
+# Test results
+TestResults/
+
+# Rider / ReSharper
+.idea/
+*.DotSettings.user
+
+# =========================
+# SQLite / Local databases
+# =========================
+*.db
+*.db-shm
+*.db-wal
+
+# Explicit local dev DB (safety net)
 src/BankMore.Accounts.Api/bankmore_accounts.db
 
-# VSCode settings
+# Temp files (used by tests)
+*.tmp
+*.temp
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# VS Code
+# =========================
 .vscode/
+
+# =========================
+# Coverage / reports
+# =========================
+coverage/
+*.coverage
+*.coveragexml
