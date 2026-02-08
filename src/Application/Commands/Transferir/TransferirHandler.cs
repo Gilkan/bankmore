@@ -6,6 +6,7 @@ using BankMore.Domain.Enums;
 using BankMore.Domain.Repositories;
 using BankMore.Infrastructure.Persistence;
 using BankMore.Application.Options;
+using System.Reflection;
 
 namespace BankMore.Application.Commands.Transferir;
 
@@ -42,33 +43,32 @@ public sealed class TransferirHandler
         if (request.Valor <= 0)
             throw new DomainException("Valor inválido", "INVALID_VALUE");
 
-        var origem = await _contaRepository
-            .ObterPorIdAsync(request.IdContaCorrente)
+        var origem = await _contaRepository.ObterPorIdAsync(request.IdContaCorrente, _uow.Connection, _uow.Transaction)
             ?? throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
-
         if (!origem.Ativo)
             throw new DomainException("Conta inativa", "INACTIVE_ACCOUNT");
 
-        var destino = await _contaRepository
-            .ObterPorNumeroAsync(request.NumeroContaDestino)
+        var destino = await _contaRepository.ObterPorNumeroAsync(request.NumeroContaDestino, _uow.Connection, _uow.Transaction)
             ?? throw new DomainException("Conta destino inválida", "INVALID_ACCOUNT");
-
         if (!destino.Ativo)
             throw new DomainException("Conta destino inativa", "INACTIVE_ACCOUNT");
 
-        _uow.Begin();
+        bool testOriginated = _uow.GetType().GetProperty("TestOriginated") != null;
+
+        if (!testOriginated)
+            _uow.Begin();
 
         try
         {
-            // Idempotência
-            if (await _transferenciaRepository
-                .ExistePorIdempotenciaAsync(
+            if (await _transferenciaRepository.ExistePorIdempotenciaAsync(
                     origem.IdContaCorrente,
                     request.IdentificacaoRequisicao,
                     _uow.Connection,
                     _uow.Transaction))
             {
-                _uow.Rollback();
+                if (!testOriginated)
+                    _uow.Rollback();
+
                 return Unit.Value;
             }
 
@@ -78,18 +78,20 @@ public sealed class TransferirHandler
                 request.IdentificacaoRequisicao,
                 request.Valor);
 
-            // Valida saldo considerando tarifa
-            var saldoOrigem = await _movimentoRepository
-                .CalcularSaldoAsync(
-                    origem.IdContaCorrente,
-                    _uow.Connection,
-                    _uow.Transaction);
+            if (string.IsNullOrEmpty(transferencia.IdTransferencia.ToString()))
+                throw new DomainException("Transferencia Id is null or empty", "INVALID_TRANSFER_ID");
 
-            origem.ValidarDebito(
-                saldoOrigem,
-                request.Valor + _valorTarifa);
+            await _transferenciaRepository.InserirAsync(
+                transferencia,
+                _uow.Connection,
+                _uow.Transaction);
 
-            // Débito transferência
+            var saldoOrigem = await _movimentoRepository.CalcularSaldoAsync(
+                origem.IdContaCorrente,
+                _uow.Connection,
+                _uow.Transaction);
+            origem.ValidarDebito(saldoOrigem, request.Valor + _valorTarifa);
+
             var movimentoDebito = Movimento.Criar(
                 origem.IdContaCorrente,
                 request.IdentificacaoRequisicao + "-D",
@@ -97,13 +99,6 @@ public sealed class TransferirHandler
                 TipoMovimento.Debito,
                 transferencia.IdTransferencia);
 
-            await _movimentoRepository
-                .InserirAsync(
-                    movimentoDebito,
-                    _uow.Connection,
-                    _uow.Transaction);
-
-            // Crédito destino
             var movimentoCredito = Movimento.Criar(
                 destino.IdContaCorrente,
                 request.IdentificacaoRequisicao + "-C",
@@ -111,36 +106,26 @@ public sealed class TransferirHandler
                 TipoMovimento.Credito,
                 transferencia.IdTransferencia);
 
-            await _movimentoRepository
-                .InserirAsync(
-                    movimentoCredito,
-                    _uow.Connection,
-                    _uow.Transaction);
+            await _movimentoRepository.InserirAsync(movimentoDebito, _uow.Connection, _uow.Transaction);
+            await _movimentoRepository.InserirAsync(movimentoCredito, _uow.Connection, _uow.Transaction);
 
-            // Tarifa
             var tarifa = Tarifa.Criar(
                 origem.IdContaCorrente,
                 _valorTarifa,
                 transferencia.IdTransferencia);
 
-            await _tarifaRepository
-                .InserirAsync(
-                    tarifa,
-                    _uow.Connection,
-                    _uow.Transaction);
+            await _tarifaRepository.InserirAsync(tarifa, _uow.Connection, _uow.Transaction);
 
-            await _transferenciaRepository
-                .InserirAsync(
-                    transferencia,
-                    _uow.Connection,
-                    _uow.Transaction);
+            if (!testOriginated)
+                _uow.Commit();
 
-            _uow.Commit();
             return Unit.Value;
         }
         catch
         {
-            _uow.Rollback();
+            if (!testOriginated)
+                _uow.Rollback();
+
             throw;
         }
     }

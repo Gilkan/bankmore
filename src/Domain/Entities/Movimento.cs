@@ -12,7 +12,7 @@ public sealed class Movimento
     public TipoMovimento Tipo { get; private set; }
     public DateTime DataHora { get; private set; }
 
-    private Movimento() { } // ORM / Dapper
+    private Movimento() { }
 
     public static Movimento Criar(
         Guid idContaCorrente,

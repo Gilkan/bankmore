@@ -13,28 +13,23 @@ public sealed class MovimentarContaHandler
 {
     private readonly IContaCorrenteRepository _contaRepository;
     private readonly IMovimentoRepository _movimentoRepository;
-    private readonly SqliteConnectionFactory _factory;
+    private readonly IConnectionFactory _factory;
 
     public MovimentarContaHandler(
         IContaCorrenteRepository contaRepository,
         IMovimentoRepository movimentoRepository,
-        SqliteConnectionFactory factory)
+        IConnectionFactory factory)
     {
         _contaRepository = contaRepository;
         _movimentoRepository = movimentoRepository;
         _factory = factory;
     }
 
-    public async Task<Unit> Handle(
-        MovimentarContaCommand request,
-        CancellationToken cancellationToken)
+    public async Task<Unit> Handle(MovimentarContaCommand request, CancellationToken cancellationToken)
     {
-        var conta = await _contaRepository
-            .ObterPorIdAsync(request.IdContaCorrente);
-
-        if (conta is null)
+        var conta = await _contaRepository.ObterPorIdAsync(request.IdContaCorrente);
+        if (conta == null)
             throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
-
         if (!conta.Ativo)
             throw new DomainException("Conta inativa", "INACTIVE_ACCOUNT");
 
@@ -51,18 +46,15 @@ public sealed class MovimentarContaHandler
 
         if (tipoMovimento == TipoMovimento.Debito)
         {
-            var saldo = await _movimentoRepository
-                .CalcularSaldoAsync(conta.IdContaCorrente, conn, tx);
-
+            var saldo = await _movimentoRepository.CalcularSaldoAsync(conta.IdContaCorrente, conn, tx);
             conta.ValidarDebito(saldo, request.Valor);
         }
 
-        var jaExiste = await _movimentoRepository
-            .ExistePorIdempotenciaAsync(
-                conta.IdContaCorrente,
-                request.IdentificacaoRequisicao,
-                conn,
-                tx);
+        var jaExiste = await _movimentoRepository.ExistePorIdempotenciaAsync(
+            conta.IdContaCorrente,
+            request.IdentificacaoRequisicao,
+            conn,
+            tx);
 
         if (jaExiste)
         {
@@ -77,9 +69,7 @@ public sealed class MovimentarContaHandler
             tipoMovimento,
             null);
 
-        await _movimentoRepository
-            .InserirAsync(movimento, conn, tx);
-
+        await _movimentoRepository.InserirAsync(movimento, conn, tx);
         tx.Commit();
 
         return Unit.Value;

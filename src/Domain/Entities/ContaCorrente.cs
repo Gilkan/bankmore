@@ -15,11 +15,11 @@ public sealed class ContaCorrente
     public string SenhaHash { get; private set; } = null!;
     public string Salt { get; private set; } = null!;
 
-    private ContaCorrente() { } // ORM
+    private ContaCorrente() { }
 
 
     public void SetNumero(int numero) { Numero = numero; }
-    public static ContaCorrente Criar(string nome, string cpf, string senha, int proximoNumero = 1001)
+    public static ContaCorrente Criar(string nome, string cpf, string senha, int proximoNumero)
     {
         if (string.IsNullOrWhiteSpace(nome))
             throw new DomainException("Nome é obrigatório", "INVALID_ACCOUNT");

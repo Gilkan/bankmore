@@ -13,12 +13,12 @@ public interface IMovimentoRepository
     Task<bool> ExistePorIdempotenciaAsync(
         Guid idContaCorrente,
         string identificacaoRequisicao,
-        IDbConnection? conn = null,
-        IDbTransaction? tx = null);
+        IDbConnection conn = null,
+        IDbTransaction tx = null);
 
     Task<decimal> CalcularSaldoAsync(
         Guid idContaCorrente,
-        IDbConnection? conn = null,
-        IDbTransaction? tx = null);
+        IDbConnection conn = null,
+        IDbTransaction tx = null);
 
 }

@@ -1,56 +1,63 @@
 using System.Data;
+using Microsoft.Data.Sqlite;
 
 namespace BankMore.Infrastructure.Persistence;
 
-public sealed class SqliteUnitOfWork : IUnitOfWork
+public sealed class SqliteUnitOfWork : IUnitOfWork, IDisposable
 {
-    private readonly SqliteConnectionFactory _factory;
+    private readonly IConnectionFactory _factory;
+    private IDbConnection? _connection;
+    private IDbTransaction? _transaction;
 
-    public IDbConnection Connection { get; private set; } = null!;
-    public IDbTransaction Transaction { get; private set; } = null!;
-
-    public SqliteUnitOfWork(SqliteConnectionFactory factory)
+    public SqliteUnitOfWork(IConnectionFactory factory)
     {
         _factory = factory;
     }
 
-    public void Begin()
+    public IDbConnection Connection
     {
-        if (Connection != null)
-            throw new InvalidOperationException("Transaction already started.");
-
-        Connection = _factory.Create();
-        Connection.Open();
-        Transaction = Connection.BeginTransaction();
+        get
+        {
+            if (_connection is null)
+            {
+                _connection = _factory.Create();
+                _connection.Open();
+            }
+            return _connection;
+        }
     }
 
+    public IDbTransaction? Transaction => _transaction;
+
+    public void Begin()
+    {
+        if (_transaction is not null)
+            throw new InvalidOperationException("Transaction already started");
+
+        _transaction = Connection.BeginTransaction();
+    }
 
     public void Commit()
     {
-        Transaction.Commit();
-        Transaction.Dispose();
-        Connection.Close();
-        Connection.Dispose();
-
-        Transaction = null!;
-        Connection = null!;
+        _transaction?.Commit();
+        DisposeTransaction();
     }
 
     public void Rollback()
     {
-        Transaction.Rollback();
-        Transaction.Dispose();
-        Connection.Close();
-        Connection.Dispose();
-
-        Transaction = null!;
-        Connection = null!;
+        _transaction?.Rollback();
+        DisposeTransaction();
     }
 
+    private void DisposeTransaction()
+    {
+        _transaction?.Dispose();
+        _transaction = null;
+    }
 
     public void Dispose()
     {
-        Transaction?.Dispose();
-        Connection?.Dispose();
+        _transaction?.Dispose();
+        _connection?.Dispose();
     }
 }

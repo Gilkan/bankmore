@@ -1,14 +1,22 @@
+using BankMore.Domain.Entities;
+using BankMore.Domain.Repositories;
+using BankMore.Infrastructure.Options;
+using Dapper;
+using Microsoft.Extensions.Options;
 using System;
 using System.Data;
 using System.Threading.Tasks;
-using Dapper;
-using BankMore.Domain.Entities;
-using BankMore.Domain.Repositories;
 
 namespace BankMore.Infrastructure.Repositories;
 
 public sealed class TarifaRepository : ITarifaRepository
 {
+
+    private readonly bool _useStringGuids;
+    public TarifaRepository(IOptions<DatabaseOptions> dbOptions)
+    {
+        _useStringGuids = dbOptions.Value.UseStringGuids;
+    }
     public async Task InserirAsync(
         Tarifa tarifa,
         IDbConnection conn,
@@ -29,12 +37,11 @@ public sealed class TarifaRepository : ITarifaRepository
                 @Valor
             );
         ";
-
         await conn.ExecuteAsync(sql, new
         {
-            IdTarifa = tarifa.IdTarifa,
-            IdContaCorrente = tarifa.IdContaCorrente,
-            IdTransferencia = tarifa.IdTransferencia,
+            IdTarifa = (object)(_useStringGuids ? tarifa.IdTarifa.ToString() : tarifa.IdTarifa),
+            IdContaCorrente = (object)(_useStringGuids ? tarifa.IdContaCorrente.ToString() : tarifa.IdContaCorrente),
+            IdTransferencia = (object)(_useStringGuids ? tarifa.IdTransferencia.ToString() : tarifa.IdTransferencia),
             DataHora = tarifa.DataHora,
             Valor = tarifa.Valor
         }, tx);
@@ -50,10 +57,6 @@ public sealed class TarifaRepository : ITarifaRepository
             FROM tarifa
             WHERE idcontacorrente = @IdContaCorrente;
         ";
-
-        return await conn.ExecuteScalarAsync<decimal>(
-            sql,
-            new { IdContaCorrente = idContaCorrente },
-            tx);
+        return await conn.ExecuteScalarAsync<decimal>(sql, new { IdContaCorrente = (object)(_useStringGuids ? idContaCorrente.ToString() : idContaCorrente) }, tx);
     }
 }

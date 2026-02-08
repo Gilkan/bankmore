@@ -3,7 +3,7 @@ using System.Data;
 
 namespace BankMore.Infrastructure.Persistence;
 
-public sealed class SqliteConnectionFactory
+public sealed class SqliteConnectionFactory : IConnectionFactory
 {
     private readonly string _connectionString;
 
@@ -14,13 +14,15 @@ public sealed class SqliteConnectionFactory
 
     public IDbConnection Create()
     {
-        var conn = new SqliteConnection(_connectionString);
-        conn.Open();
+        var connection = new SqliteConnection(_connectionString);
+        connection.Open();
 
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = "PRAGMA foreign_keys = ON;";
-        cmd.ExecuteNonQuery();
+        using var pragma = connection.CreateCommand();
+        pragma.CommandText = "PRAGMA foreign_keys = ON;";
+        pragma.ExecuteNonQuery();
 
-        return conn;
+        SqliteSchemaInitializer.Initialize(connection);
+
+        return connection;
     }
 }

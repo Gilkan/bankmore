@@ -77,4 +77,37 @@ public sealed class Cpf
                 throw new DomainException("CPF inválido", "INVALID_DOCUMENT");
         }
     }
+
+    public static Cpf GenerateRandomCpf()
+    {
+        var random = new Random();
+        int[] numbers = new int[11];
+
+        for (int i = 0; i < 9; i++)
+            numbers[i] = random.Next(0, 10);
+
+        if (numbers.Distinct().Count() == 1)
+            numbers[8] = (numbers[8] + 1) % 10;
+
+        int sum = 0;
+        for (int i = 0; i < 9; i++)
+            sum += numbers[i] * (10 - i);
+        int remainder = sum % 11;
+        numbers[9] = remainder < 2 ? 0 : 11 - remainder;
+
+        sum = 0;
+        for (int i = 0; i < 10; i++)
+            sum += numbers[i] * (11 - i);
+        remainder = sum % 11;
+        numbers[10] = remainder < 2 ? 0 : 11 - remainder;
+
+        string cpfValue = string.Join("", numbers);
+
+        return new Cpf { Value = cpfValue };
+    }
+
+    public static string GenerateRandomCpfString()
+    {
+        return GenerateRandomCpf().Value;
+    }
 }
