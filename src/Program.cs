@@ -1,5 +1,6 @@
 using BankMore.Application.Options;
 using BankMore.Domain.Repositories;
+using BankMore.Infrastructure.Messaging;
 using BankMore.Infrastructure.Options;
 using BankMore.Infrastructure.Persistence;
 using BankMore.Infrastructure.Repositories;
@@ -60,7 +61,10 @@ builder.Services.AddSwaggerGen(c =>
 // SQLite / Persistence
 // =======================
 
-builder.Services.AddSingleton<IConnectionFactory, SqliteConnectionFactory>();
+var connectionString = builder.Configuration.GetValue<string>("Database:ConnectionString") ?? "Data Source=bankmore.db";
+
+builder.Services.AddSingleton<IConnectionFactory>(_ => new SqliteConnectionFactory(connectionString));
+
 
 builder.Services.AddScoped<IUnitOfWork, SqliteUnitOfWork>();
 
@@ -146,6 +150,26 @@ builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddMediatR(typeof(Program).Assembly);
 
 
+// =======================
+// Kafka
+// =======================
+
+builder.Services.Configure<KafkaOptions>(
+    builder.Configuration.GetSection("Kafka"));
+
+builder.Services.AddSingleton<KafkaProducer>(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<KafkaOptions>>();
+    var logger = sp.GetRequiredService<ILogger<KafkaProducer>>();
+
+    // If no bootstrap servers configured, disable Kafka
+    if (string.IsNullOrWhiteSpace(options.Value.BootstrapServers))
+        return null!;
+
+    return new KafkaProducer(options, logger);
+});
+
+
 var app = builder.Build();
 
 
@@ -168,6 +192,12 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.Lifetime.ApplicationStopping.Register(() =>
+{
+    var producer = app.Services.GetService<KafkaProducer>();
+    producer?.Dispose();
+});
 
 app.Run();
 

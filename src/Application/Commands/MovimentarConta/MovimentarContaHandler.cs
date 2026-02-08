@@ -5,6 +5,7 @@ using BankMore.Domain.Entities;
 using BankMore.Domain.Enums;
 using BankMore.Domain.Repositories;
 using BankMore.Infrastructure.Persistence;
+using BankMore.Infrastructure.Messaging;
 
 namespace BankMore.Application.Commands.MovimentarConta;
 
@@ -14,15 +15,18 @@ public sealed class MovimentarContaHandler
     private readonly IContaCorrenteRepository _contaRepository;
     private readonly IMovimentoRepository _movimentoRepository;
     private readonly IConnectionFactory _factory;
+    private readonly KafkaProducer? _producer;
 
     public MovimentarContaHandler(
         IContaCorrenteRepository contaRepository,
         IMovimentoRepository movimentoRepository,
-        IConnectionFactory factory)
+        IConnectionFactory factory,
+        KafkaProducer? producer)
     {
         _contaRepository = contaRepository;
         _movimentoRepository = movimentoRepository;
         _factory = factory;
+        _producer = producer;
     }
 
     public async Task<Unit> Handle(MovimentarContaCommand request, CancellationToken cancellationToken)
@@ -71,6 +75,18 @@ public sealed class MovimentarContaHandler
 
         await _movimentoRepository.InserirAsync(movimento, conn, tx);
         tx.Commit();
+
+        if (_producer != null)
+        {
+            await _producer.ProduceAsync("movimento", new
+            {
+                IdMovimento = movimento.IdMovimento,
+                IdContaCorrente = movimento.IdContaCorrente,
+                Valor = movimento.Valor,
+                Tipo = movimento.Tipo.ToString(),
+                Data = movimento.DataHora
+            });
+        }
 
         return Unit.Value;
     }

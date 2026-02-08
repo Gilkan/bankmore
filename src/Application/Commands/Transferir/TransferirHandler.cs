@@ -7,6 +7,7 @@ using BankMore.Domain.Repositories;
 using BankMore.Infrastructure.Persistence;
 using BankMore.Application.Options;
 using System.Reflection;
+using BankMore.Infrastructure.Messaging;
 
 namespace BankMore.Application.Commands.Transferir;
 
@@ -19,6 +20,7 @@ public sealed class TransferirHandler
     private readonly ITarifaRepository _tarifaRepository;
     private readonly IUnitOfWork _uow;
     private readonly decimal _valorTarifa;
+    private readonly KafkaProducer? _producer;
 
     public TransferirHandler(
         IContaCorrenteRepository contaRepository,
@@ -26,7 +28,8 @@ public sealed class TransferirHandler
         ITransferenciaRepository transferenciaRepository,
         ITarifaRepository tarifaRepository,
         IUnitOfWork uow,
-        IOptions<TarifaOptions> tarifaOptions)
+        IOptions<TarifaOptions> tarifaOptions,
+        KafkaProducer? producer)
     {
         _contaRepository = contaRepository;
         _movimentoRepository = movimentoRepository;
@@ -34,6 +37,7 @@ public sealed class TransferirHandler
         _tarifaRepository = tarifaRepository;
         _uow = uow;
         _valorTarifa = tarifaOptions.Value.ValorTransferencia;
+        _producer = producer;
     }
 
     public async Task<Unit> Handle(
@@ -118,6 +122,18 @@ public sealed class TransferirHandler
 
             if (!testOriginated)
                 _uow.Commit();
+
+            if (_producer != null)
+            {
+                await _producer.ProduceAsync("transferencias", new
+                {
+                    IdTransferencia = transferencia.IdTransferencia,
+                    IdContaOrigem = origem.IdContaCorrente,
+                    IdContaDestino = destino.IdContaCorrente,
+                    Valor = request.Valor,
+                    Data = transferencia.DataHora
+                });
+            }
 
             return Unit.Value;
         }
