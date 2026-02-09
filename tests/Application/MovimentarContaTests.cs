@@ -33,7 +33,8 @@ public sealed class MovimentarContaTests
         var handler = new MovimentarContaHandler(
             contaRepo,
             movimentoRepo,
-            db.ConnectionFactory
+            db.ConnectionFactory,
+            null
         );
 
         var cmd = new MovimentarContaCommand(
@@ -74,7 +75,8 @@ public sealed class MovimentarContaTests
         var handler = new MovimentarContaHandler(
             contaRepo,
             movimentoRepo,
-            db.ConnectionFactory
+            db.ConnectionFactory,
+            null
         );
 
         var cmd = new MovimentarContaCommand(

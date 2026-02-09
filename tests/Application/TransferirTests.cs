@@ -76,7 +76,8 @@ namespace BankMore.Tests.Application
                 transferenciaRepository,
                 tarifaRepository,
                 uow,
-                tarifaOptions
+                tarifaOptions,
+                null
             );
 
             // Execute transfer
