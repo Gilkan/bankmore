@@ -8,7 +8,7 @@ namespace BankMore.Tests.Infrastructure;
 
 public static class JwtTestHelper
 {
-    public static string CreateToken(Guid contaId)
+    public static string CreateToken(object contaId)
     {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes("THIS_IS_A_MINIMUM_32_CHAR_SECRET_KEY"));

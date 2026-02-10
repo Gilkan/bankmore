@@ -2,49 +2,66 @@ using System;
 using System.Data;
 using BankMore.Infrastructure.Persistence;
 
-namespace BankMore.Tests.Infrastructure
+namespace BankMore.Tests.Infrastructure;
+
+public sealed class TestUnitOfWork : IUnitOfWork
 {
-    public sealed class TestUnitOfWork : IUnitOfWork, IDisposable
+    private readonly bool _ownsTransaction;
+
+    public TestUnitOfWork(IDbConnection connection, IDbTransaction? transaction = null)
     {
-        private readonly IDbConnection _connection;
+        Connection = connection ?? throw new ArgumentNullException(nameof(connection));
 
-        // Marker to indicate this UoW originates from tests
-        public bool TestOriginated { get; } = true;
-
-        // Allow optional existing transaction
-        public TestUnitOfWork(IDbConnection connection, IDbTransaction? transaction = null)
+        if (transaction != null)
         {
-            _connection = connection ?? throw new ArgumentNullException(nameof(connection));
             Transaction = transaction;
+            _ownsTransaction = false;
         }
-
-        public IDbConnection Connection => _connection;
-        public IDbTransaction? Transaction { get; private set; }
-
-        public void Begin()
+        else
         {
-            if (Transaction == null)
-                Transaction = _connection.BeginTransaction();
+            Transaction = null;
+            _ownsTransaction = true;
         }
+    }
 
-        public void Commit()
+    public IDbConnection Connection { get; }
+
+    public IDbTransaction? Transaction { get; private set; }
+
+    public void Begin()
+    {
+        if (Connection.State != ConnectionState.Open)
+            Connection.Open();
+
+        if (_ownsTransaction && Transaction == null)
+            Transaction = Connection.BeginTransaction();
+    }
+
+
+    public void Commit()
+    {
+        if (_ownsTransaction && Transaction != null)
         {
-            Transaction?.Commit();
-            Transaction?.Dispose();
+            Transaction.Commit();
+            Transaction.Dispose();
             Transaction = null;
         }
+    }
 
-        public void Rollback()
+    public void Rollback()
+    {
+        if (_ownsTransaction && Transaction != null)
         {
-            Transaction?.Rollback();
-            Transaction?.Dispose();
+            Transaction.Rollback();
+            Transaction.Dispose();
             Transaction = null;
         }
+    }
 
-        public void Dispose()
-        {
-            Transaction?.Dispose();
-            // Do NOT dispose the connection here; TestDatabaseFactory manages it
-        }
+    public void Dispose()
+    {
+        // Intentionally empty.
+        // TestUnitOfWork does NOT own the connection.
+        // The test controls connection lifetime explicitly.
     }
 }

@@ -6,14 +6,13 @@ using BankMore.Infrastructure.Persistence;
 
 namespace BankMore.Tests.Infrastructure;
 
-public sealed class TestDatabaseFactory : IDisposable, IConnectionFactory
+public sealed class TestConnectionFactory : IConnectionFactory, IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly string _tempFile;
+    private bool _initialized;
 
-    public IConnectionFactory ConnectionFactory => this;
-
-    public TestDatabaseFactory()
+    public TestConnectionFactory()
     {
         _tempFile = Path.GetTempFileName();
         var connectionString = $"Data Source={_tempFile};Foreign Keys=True";
@@ -28,9 +27,16 @@ public sealed class TestDatabaseFactory : IDisposable, IConnectionFactory
         }
 
         SqliteSchemaInitializer.Initialize(_connection);
+        _initialized = true;
     }
 
-    public IDbConnection Create() => _connection;
+    public IDbConnection Create()
+    {
+        if (!_initialized)
+            throw new InvalidOperationException("TestConnectionFactory not initialized.");
+
+        return _connection;
+    }
 
     public void Dispose()
     {
@@ -42,7 +48,7 @@ public sealed class TestDatabaseFactory : IDisposable, IConnectionFactory
         }
         catch
         {
-            // ignore
+            // ignore cleanup failures
         }
     }
 }

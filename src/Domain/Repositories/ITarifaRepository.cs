@@ -13,7 +13,7 @@ public interface ITarifaRepository
         IDbTransaction tx);
 
     Task<decimal> SomarPorContaAsync(
-        Guid idContaCorrente,
+        object idContaCorrente,
         IDbConnection conn,
         IDbTransaction? tx = null);
 }

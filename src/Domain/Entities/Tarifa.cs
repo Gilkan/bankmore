@@ -5,16 +5,16 @@ namespace BankMore.Domain.Entities;
 
 public sealed class Tarifa
 {
-    public Guid IdTarifa { get; }
-    public Guid IdContaCorrente { get; }
-    public Guid IdTransferencia { get; }
+    public object IdTarifa { get; } = null!;
+    public object IdContaCorrente { get; } = null!;
+    public object IdTransferencia { get; } = null!;
     public DateTime DataHora { get; }
     public decimal Valor { get; }
 
     private Tarifa(
-        Guid idTarifa,
-        Guid idContaCorrente,
-        Guid idTransferencia,
+        object idTarifa,
+        object idContaCorrente,
+        object idTransferencia,
         DateTime dataHora,
         decimal valor)
     {
@@ -26,15 +26,15 @@ public sealed class Tarifa
     }
 
     public static Tarifa Criar(
-        Guid idContaCorrente,
+        object idContaCorrente,
         decimal valor,
-        Guid idTransferencia)
+        object idTransferencia)
     {
         if (valor <= 0)
             throw new DomainException("Valor da tarifa inválido", "INVALID_TARIFA_VALUE");
 
         return new Tarifa(
-            Guid.NewGuid(),
+            idContaCorrente is Guid ? Guid.NewGuid() : Guid.NewGuid().ToString(),
             idContaCorrente,
             idTransferencia,
             DateTime.UtcNow,

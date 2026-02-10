@@ -6,7 +6,7 @@ namespace BankMore.Domain.Entities;
 
 public sealed class ContaCorrente
 {
-    public Guid IdContaCorrente { get; private set; }
+    public object IdContaCorrente { get; private set; } = null!; // string or Guid
     public int Numero { get; private set; }
     public string Nome { get; private set; } = null!;
     public Cpf Cpf { get; private set; } = null!;
@@ -19,7 +19,7 @@ public sealed class ContaCorrente
 
 
     public void SetNumero(int numero) { Numero = numero; }
-    public static ContaCorrente Criar(string nome, string cpf, string senha, int proximoNumero)
+    public static ContaCorrente Criar(string nome, string cpf, string senha, int proximoNumero, bool useStringGuids)
     {
         if (string.IsNullOrWhiteSpace(nome))
             throw new DomainException("Nome é obrigatório", "INVALID_ACCOUNT");
@@ -34,7 +34,7 @@ public sealed class ContaCorrente
 
         return new ContaCorrente
         {
-            IdContaCorrente = Guid.NewGuid(),
+            IdContaCorrente = (object)(useStringGuids ? Guid.NewGuid().ToString() : Guid.NewGuid()),
             Numero = proximoNumero,
             Nome = nome,
             Cpf = cpfObj,
@@ -74,7 +74,7 @@ public sealed class ContaCorrente
     }
 
     public static ContaCorrente Hydrate(
-        Guid id,
+        object id,
         int numero,
         string nome,
         string cpf,

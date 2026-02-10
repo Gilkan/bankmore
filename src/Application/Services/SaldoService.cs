@@ -16,7 +16,7 @@ public sealed class SaldoService : ISaldoService
         _movimentoRepository = movimentoRepository;
     }
 
-    public async Task<SaldoResult> ConsultarAsync(Guid idContaToken)
+    public async Task<SaldoResult> ConsultarAsync(object idContaToken)
     {
         var conta = await _contaRepository.ObterPorIdAsync(idContaToken);
 

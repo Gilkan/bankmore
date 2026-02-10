@@ -4,6 +4,6 @@ namespace BankMore.Infrastructure.Security.Users;
 public sealed class UsuarioAuthResult
 {
     public bool Sucesso { get; init; }
-    public Guid? IdContaCorrente { get; init; }
+    public object? IdContaCorrente { get; init; }
     public int? NumeroConta { get; init; }
 }

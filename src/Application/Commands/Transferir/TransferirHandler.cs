@@ -6,7 +6,6 @@ using BankMore.Domain.Enums;
 using BankMore.Domain.Repositories;
 using BankMore.Infrastructure.Persistence;
 using BankMore.Application.Options;
-using System.Reflection;
 using BankMore.Infrastructure.Messaging;
 
 namespace BankMore.Application.Commands.Transferir;
@@ -47,32 +46,37 @@ public sealed class TransferirHandler
         if (request.Valor <= 0)
             throw new DomainException("Valor inválido", "INVALID_VALUE");
 
-        var origem = await _contaRepository.ObterPorIdAsync(request.IdContaCorrente, _uow.Connection, _uow.Transaction)
-            ?? throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
-        if (!origem.Ativo)
-            throw new DomainException("Conta inativa", "INACTIVE_ACCOUNT");
-
-        var destino = await _contaRepository.ObterPorNumeroAsync(request.NumeroContaDestino, _uow.Connection, _uow.Transaction)
-            ?? throw new DomainException("Conta destino inválida", "INVALID_ACCOUNT");
-        if (!destino.Ativo)
-            throw new DomainException("Conta destino inativa", "INACTIVE_ACCOUNT");
-
-        bool testOriginated = _uow.GetType().GetProperty("TestOriginated") != null;
-
-        if (!testOriginated)
-            _uow.Begin();
+        var conn = _uow.Connection;
+        _uow.Begin();
+        var tx = _uow.Transaction!;
 
         try
         {
+            var origem = await _contaRepository.ObterPorIdAsync(
+                    request.IdContaCorrente,
+                    conn,
+                    tx)
+                ?? throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
+
+            if (!origem.Ativo)
+                throw new DomainException("Conta inativa", "INACTIVE_ACCOUNT");
+
+            var destino = await _contaRepository.ObterPorNumeroAsync(
+                    request.NumeroContaDestino,
+                    conn,
+                    tx)
+                ?? throw new DomainException("Conta destino inválida", "INVALID_ACCOUNT");
+
+            if (!destino.Ativo)
+                throw new DomainException("Conta destino inativa", "INACTIVE_ACCOUNT");
+
             if (await _transferenciaRepository.ExistePorIdempotenciaAsync(
                     origem.IdContaCorrente,
                     request.IdentificacaoRequisicao,
-                    _uow.Connection,
-                    _uow.Transaction))
+                    conn,
+                    tx))
             {
-                if (!testOriginated)
-                    _uow.Rollback();
-
+                _uow.Commit();
                 return Unit.Value;
             }
 
@@ -82,18 +86,16 @@ public sealed class TransferirHandler
                 request.IdentificacaoRequisicao,
                 request.Valor);
 
-            if (string.IsNullOrEmpty(transferencia.IdTransferencia.ToString()))
-                throw new DomainException("Transferencia Id is null or empty", "INVALID_TRANSFER_ID");
-
             await _transferenciaRepository.InserirAsync(
                 transferencia,
-                _uow.Connection,
-                _uow.Transaction);
+                conn,
+                tx);
 
             var saldoOrigem = await _movimentoRepository.CalcularSaldoAsync(
                 origem.IdContaCorrente,
-                _uow.Connection,
-                _uow.Transaction);
+                conn,
+                tx);
+
             origem.ValidarDebito(saldoOrigem, request.Valor + _valorTarifa);
 
             var movimentoDebito = Movimento.Criar(
@@ -110,39 +112,36 @@ public sealed class TransferirHandler
                 TipoMovimento.Credito,
                 transferencia.IdTransferencia);
 
-            await _movimentoRepository.InserirAsync(movimentoDebito, _uow.Connection, _uow.Transaction);
-            await _movimentoRepository.InserirAsync(movimentoCredito, _uow.Connection, _uow.Transaction);
+            await _movimentoRepository.InserirAsync(movimentoDebito, conn, tx);
+            await _movimentoRepository.InserirAsync(movimentoCredito, conn, tx);
 
             var tarifa = Tarifa.Criar(
                 origem.IdContaCorrente,
                 _valorTarifa,
                 transferencia.IdTransferencia);
 
-            await _tarifaRepository.InserirAsync(tarifa, _uow.Connection, _uow.Transaction);
+            await _tarifaRepository.InserirAsync(tarifa, conn, tx);
 
-            if (!testOriginated)
-                _uow.Commit();
+            _uow.Commit();
 
-            if (_producer != null)
-            {
-                await _producer.ProduceAsync("transferencias", new
-                {
-                    IdTransferencia = transferencia.IdTransferencia,
-                    IdContaOrigem = origem.IdContaCorrente,
-                    IdContaDestino = destino.IdContaCorrente,
-                    Valor = request.Valor,
-                    Data = transferencia.DataHora
-                });
-            }
-
-            return Unit.Value;
+            // if (_producer != null)
+            // {
+            //     await _producer.ProduceAsync("transferencias", new
+            //     {
+            //         IdTransferencia = transferencia.IdTransferencia,
+            //         IdContaOrigem = transferencia.IdContaOrigem,
+            //         IdContaDestino = transferencia.IdContaDestino,
+            //         Valor = transferencia.Valor,
+            //         Data = transferencia.DataHora
+            //     });
+            // }
         }
         catch
         {
-            if (!testOriginated)
-                _uow.Rollback();
-
+            _uow.Rollback();
             throw;
         }
+
+        return Unit.Value;
     }
 }

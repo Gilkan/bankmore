@@ -4,20 +4,17 @@ using BankMore.Application.Commands.MovimentarConta;
 using BankMore.Controllers.Dtos;
 using BankMore.Domain;
 using MediatR;
+using Microsoft.Extensions.Options;
+using BankMore.Infrastructure.Options;
 
 namespace BankMore.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public sealed class MovimentacoesController : ControllerBase
+public sealed class MovimentacoesController : BaseController<IMediator>
 {
-    private readonly IMediator _mediator;
-
-    public MovimentacoesController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
+    public MovimentacoesController(IMediator mediator, IOptions<DatabaseOptions> dbOptions) : base(mediator, dbOptions) { }
 
     [HttpPost]
     public async Task<IActionResult> Movimentar([FromBody] MovimentacaoDto dto)
@@ -26,7 +23,7 @@ public sealed class MovimentacoesController : ControllerBase
         {
             var idContaToken = GetContaIdFromToken();
 
-            await _mediator.Send(
+            await _dependency.Send(
                 new MovimentarContaCommand(
                     idContaToken,
                     dto.IdentificacaoRequisicao,
@@ -41,17 +38,5 @@ public sealed class MovimentacoesController : ControllerBase
         {
             return BadRequest(new { ex.Message, ex.ErrorType });
         }
-    }
-
-
-    private Guid GetContaIdFromToken()
-    {
-        var claim = User.Claims
-            .FirstOrDefault(c => c.Type == "idContaCorrente");
-
-        if (claim is null)
-            throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
-
-        return Guid.Parse(claim.Value);
     }
 }

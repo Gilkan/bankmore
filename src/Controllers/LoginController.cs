@@ -3,28 +3,31 @@ using BankMore.Controllers.Dtos;
 using BankMore.Domain;
 using BankMore.Domain.Repositories;
 using BankMore.Infrastructure.Security;
+using Microsoft.Extensions.Options;
+using BankMore.Infrastructure.Options;
 
 namespace BankMore.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public sealed class LoginController : ControllerBase
+public sealed class LoginController : BaseController<IContaCorrenteRepository>
 {
-    private readonly IContaCorrenteRepository _contaRepository;
-    private readonly JwtTokenService _jwt;
+    private readonly IOptions<DatabaseOptions> _dbOptions;
+    private readonly JwtTokenService _jwt = null!;
 
     public LoginController(
         IContaCorrenteRepository contaRepository,
-        JwtTokenService jwt)
+        IOptions<DatabaseOptions> dbOptions,
+        JwtTokenService jwt) : base(contaRepository, dbOptions)
     {
-        _contaRepository = contaRepository;
+        _dbOptions = dbOptions;
         _jwt = jwt;
     }
 
     [HttpPost]
     public async Task<IActionResult> Login([FromBody] LoginDto dto)
     {
-        var conta = await _contaRepository.ObterPorNumeroAsync(dto.NumeroConta);
+        var conta = await _dependency.ObterPorNumeroAsync(dto.NumeroConta);
 
         if (conta is null || !conta.Ativo)
             return Unauthorized(new { message = "Conta inválida ou inativa" });
@@ -32,7 +35,17 @@ public sealed class LoginController : ControllerBase
         if (!conta.SenhaValida(dto.Senha))
             return Unauthorized(new { message = "Senha inválida" });
 
-        var token = _jwt.GerarToken(conta.IdContaCorrente);
+        if (conta is null)
+            return Unauthorized(new { message = "Conta inválida" });
+
+        var idString = conta.IdContaCorrente switch
+        {
+            Guid guid when !_dbOptions.Value.UseStringGuids => guid.ToString(),
+            string s => s,
+            _ => conta.IdContaCorrente.ToString()! //it will not hit here
+        };
+
+        var token = _jwt.GerarToken(idString);
 
         return Ok(new { token });
     }

@@ -15,7 +15,7 @@ public sealed class JwtTokenService
         _secret = configuration["Jwt:SecretKey"]!;
     }
 
-    public string GerarToken(Guid idContaCorrente)
+    public string GerarToken(string idContaCorrente)
     {
         var claims = new[]
         {

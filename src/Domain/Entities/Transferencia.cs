@@ -2,9 +2,9 @@ namespace BankMore.Domain.Entities;
 
 public sealed class Transferencia
 {
-    public Guid IdTransferencia { get; private set; }
-    public Guid IdContaOrigem { get; private set; }
-    public Guid IdContaDestino { get; private set; }
+    public object IdTransferencia { get; private set; } = null!;
+    public object IdContaOrigem { get; private set; } = null!;
+    public object IdContaDestino { get; private set; } = null!;
     public string IdentificacaoRequisicao { get; private set; } = null!;
     public decimal Valor { get; private set; }
     public DateTime DataHora { get; private set; }
@@ -12,8 +12,8 @@ public sealed class Transferencia
     private Transferencia() { }
 
     public static Transferencia Criar(
-        Guid idContaOrigem,
-        Guid idContaDestino,
+        object idContaOrigem,
+        object idContaDestino,
         string identificacaoRequisicao,
         decimal valor)
     {
@@ -25,7 +25,7 @@ public sealed class Transferencia
 
         return new Transferencia
         {
-            IdTransferencia = Guid.NewGuid(),
+            IdTransferencia = idContaOrigem is Guid ? Guid.NewGuid() : Guid.NewGuid().ToString(),
             IdContaOrigem = idContaOrigem,
             IdContaDestino = idContaDestino,
             IdentificacaoRequisicao = identificacaoRequisicao,

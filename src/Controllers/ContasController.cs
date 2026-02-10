@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using BankMore.Domain;
 using BankMore.Domain.Entities;
 using BankMore.Domain.Repositories;
+using Microsoft.Extensions.Options;
+using BankMore.Infrastructure.Options;
 
 namespace BankMore.Controllers;
 
@@ -10,10 +12,12 @@ namespace BankMore.Controllers;
 public class ContasController : ControllerBase
 {
     private readonly IContaCorrenteRepository _repository;
+    private readonly IOptions<DatabaseOptions> _dbOptions;
 
-    public ContasController(IContaCorrenteRepository repository)
+    public ContasController(IContaCorrenteRepository repository, IOptions<DatabaseOptions> dbOptions)
     {
         _repository = repository;
+        _dbOptions = dbOptions;
     }
 
     [HttpGet]
@@ -59,7 +63,7 @@ public class ContasController : ControllerBase
         {
             int nextNumero = await _repository.GetNextNumeroAsync();
 
-            var conta = ContaCorrente.Criar(dto.Nome, dto.Cpf, dto.Senha, nextNumero);
+            var conta = ContaCorrente.Criar(dto.Nome, dto.Cpf, dto.Senha, nextNumero, _dbOptions.Value.UseStringGuids);
             await _repository.InserirAsync(conta);
 
             return CreatedAtAction(nameof(GetByNumero), new { numero = conta.Numero }, new

@@ -48,7 +48,7 @@ public sealed class TarifaRepository : ITarifaRepository
     }
 
     public async Task<decimal> SomarPorContaAsync(
-        Guid idContaCorrente,
+        object idContaCorrente,
         IDbConnection conn,
         IDbTransaction? tx = null)
     {
@@ -57,6 +57,6 @@ public sealed class TarifaRepository : ITarifaRepository
             FROM tarifa
             WHERE idcontacorrente = @IdContaCorrente;
         ";
-        return await conn.ExecuteScalarAsync<decimal>(sql, new { IdContaCorrente = (object)(_useStringGuids ? idContaCorrente.ToString() : idContaCorrente) }, tx);
+        return await conn.ExecuteScalarAsync<decimal>(sql, new { IdContaCorrente = _useStringGuids ? idContaCorrente.ToString() : idContaCorrente }, tx);
     }
 }

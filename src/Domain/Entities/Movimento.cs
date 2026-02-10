@@ -4,9 +4,9 @@ namespace BankMore.Domain.Entities;
 
 public sealed class Movimento
 {
-    public Guid IdMovimento { get; private set; }
-    public Guid IdContaCorrente { get; private set; }
-    public Guid? IdTransferencia { get; private set; }
+    public object IdMovimento { get; private set; } = null!; // string or Guid
+    public object IdContaCorrente { get; private set; } = null!;
+    public object? IdTransferencia { get; private set; }
     public string IdentificacaoRequisicao { get; private set; } = null!;
     public decimal Valor { get; private set; }
     public TipoMovimento Tipo { get; private set; }
@@ -15,11 +15,11 @@ public sealed class Movimento
     private Movimento() { }
 
     public static Movimento Criar(
-        Guid idContaCorrente,
+        object idContaCorrente,
         string identificacaoRequisicao,
         decimal valor,
         TipoMovimento tipo,
-        Guid? idTransferencia = null)
+        object? idTransferencia = null)
     {
         if (string.IsNullOrWhiteSpace(identificacaoRequisicao))
             throw new DomainException(
@@ -33,7 +33,7 @@ public sealed class Movimento
 
         return new Movimento
         {
-            IdMovimento = Guid.NewGuid(),
+            IdMovimento = idContaCorrente is Guid ? Guid.NewGuid() : Guid.NewGuid().ToString(),
             IdContaCorrente = idContaCorrente,
             IdTransferencia = idTransferencia,
             IdentificacaoRequisicao = identificacaoRequisicao,

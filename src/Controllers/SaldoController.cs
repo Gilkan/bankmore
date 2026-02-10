@@ -3,18 +3,18 @@ using Microsoft.AspNetCore.Authorization;
 using BankMore.Application.Services;
 using BankMore.Domain;
 using System.Linq;
+using MediatR;
+using Microsoft.Extensions.Options;
+using BankMore.Infrastructure.Options;
+
+namespace BankMore.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public sealed class SaldoController : ControllerBase
+public sealed class SaldoController : BaseController<ISaldoService>
 {
-    private readonly ISaldoService _service;
-
-    public SaldoController(ISaldoService service)
-    {
-        _service = service;
-    }
+    public SaldoController(ISaldoService service, IOptions<DatabaseOptions> dbOptions) : base(service, dbOptions) { }
 
     [HttpGet]
     public async Task<IActionResult> Consultar()
@@ -23,7 +23,7 @@ public sealed class SaldoController : ControllerBase
         {
             var idContaToken = GetContaIdFromToken();
 
-            var result = await _service.ConsultarAsync(idContaToken);
+            var result = await _dependency.ConsultarAsync(idContaToken);
 
             return Ok(result);
         }
@@ -36,16 +36,5 @@ public sealed class SaldoController : ControllerBase
                 _ => BadRequest(new { ex.Message })
             };
         }
-    }
-
-    private Guid GetContaIdFromToken()
-    {
-        var claim = User.Claims
-            .FirstOrDefault(c => c.Type == "idContaCorrente");
-
-        if (claim is null)
-            throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
-
-        return Guid.Parse(claim.Value);
     }
 }

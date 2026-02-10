@@ -3,18 +3,17 @@ using Microsoft.AspNetCore.Authorization;
 using BankMore.Application.Commands.Transferir;
 using BankMore.Domain;
 using MediatR;
+using Microsoft.Extensions.Options;
+using BankMore.Infrastructure.Options;
+
+namespace BankMore.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public sealed class TransferenciasController : ControllerBase
+public sealed class TransferenciasController : BaseController<IMediator>
 {
-    private readonly IMediator _mediator;
-
-    public TransferenciasController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
+    public TransferenciasController(IMediator mediator, IOptions<DatabaseOptions> dbOptions) : base(mediator, dbOptions) { }
 
     [HttpPost]
     public async Task<IActionResult> Transferir([FromBody] TransferenciaDto dto)
@@ -23,7 +22,7 @@ public sealed class TransferenciasController : ControllerBase
         {
             var idConta = GetContaIdFromToken();
 
-            await _mediator.Send(
+            await _dependency.Send(
                 new TransferirCommand(
                     idConta,
                     dto.IdentificacaoRequisicao,
@@ -38,16 +37,5 @@ public sealed class TransferenciasController : ControllerBase
         {
             return BadRequest(new { ex.Message, ex.ErrorType });
         }
-    }
-
-    private Guid GetContaIdFromToken()
-    {
-        var claim = User.Claims
-            .FirstOrDefault(c => c.Type == "idContaCorrente");
-
-        if (claim is null)
-            throw new DomainException("Conta inválida", "INVALID_ACCOUNT");
-
-        return Guid.Parse(claim.Value);
     }
 }

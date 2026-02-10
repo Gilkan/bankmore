@@ -11,7 +11,7 @@ public interface ITransferenciaRepository
         IDbTransaction tx);
 
     Task<bool> ExistePorIdempotenciaAsync(
-        Guid idContaOrigem,
+        object idContaOrigem,
         string identificacaoRequisicao,
         IDbConnection? conn,
         IDbTransaction? tx);

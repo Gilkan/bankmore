@@ -40,7 +40,7 @@ public sealed class TransferenciaRepository : ITransferenciaRepository
     }
 
     public async Task<bool> ExistePorIdempotenciaAsync(
-        Guid idContaOrigem,
+        object idContaOrigem,
         string identificacaoRequisicao,
         IDbConnection? conn = null,
         IDbTransaction? tx = null)
@@ -53,7 +53,7 @@ public sealed class TransferenciaRepository : ITransferenciaRepository
                 FROM transferencia
                 WHERE idcontaorigem = @idContaOrigem
                 AND identificacao_requisicao = @identificacaoRequisicao",
-                new { idContaOrigem = (object)(_useStringGuids ? idContaOrigem.ToString() : idContaOrigem), identificacaoRequisicao },
+                new { idContaOrigem = _useStringGuids ? idContaOrigem.ToString() : idContaOrigem, identificacaoRequisicao },
                 tx) > 0;
         }
         finally

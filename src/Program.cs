@@ -14,8 +14,13 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.Configure<TarifaOptions>(
-    builder.Configuration.GetSection("Tarifa"));
+var tarifaSection = builder.Configuration.GetSection("Tarifa");
+var tarifaOptions = new TarifaOptions(
+    valorTransferencia: tarifaSection.GetValue<decimal>("ValorTransferencia")
+);
+builder.Services.AddSingleton<Microsoft.Extensions.Options.IOptions<TarifaOptions>>(
+    Microsoft.Extensions.Options.Options.Create(tarifaOptions)
+);
 
 builder.Services.Configure<DatabaseOptions>(
     builder.Configuration.GetSection("Database"));

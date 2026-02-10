@@ -1,5 +1,4 @@
 using MediatR;
-using System.Data;
 using BankMore.Domain;
 using BankMore.Domain.Entities;
 using BankMore.Domain.Enums;
@@ -14,18 +13,18 @@ public sealed class MovimentarContaHandler
 {
     private readonly IContaCorrenteRepository _contaRepository;
     private readonly IMovimentoRepository _movimentoRepository;
-    private readonly IConnectionFactory _factory;
+    private readonly IUnitOfWork _uow;
     private readonly KafkaProducer? _producer;
 
     public MovimentarContaHandler(
         IContaCorrenteRepository contaRepository,
         IMovimentoRepository movimentoRepository,
-        IConnectionFactory factory,
+        IUnitOfWork uow,
         KafkaProducer? producer)
     {
         _contaRepository = contaRepository;
         _movimentoRepository = movimentoRepository;
-        _factory = factory;
+        _uow = uow;
         _producer = producer;
     }
 
@@ -44,48 +43,61 @@ public sealed class MovimentarContaHandler
             _ => throw new DomainException("Tipo inválido", "INVALID_TYPE")
         };
 
-        using var conn = _factory.Create();
-        conn.Open();
-        using var tx = conn.BeginTransaction();
+        var conn = _uow.Connection;
+        _uow.Begin();
+        var tx = _uow.Transaction!;
 
-        if (tipoMovimento == TipoMovimento.Debito)
+        try
         {
-            var saldo = await _movimentoRepository.CalcularSaldoAsync(conta.IdContaCorrente, conn, tx);
-            conta.ValidarDebito(saldo, request.Valor);
-        }
-
-        var jaExiste = await _movimentoRepository.ExistePorIdempotenciaAsync(
-            conta.IdContaCorrente,
-            request.IdentificacaoRequisicao,
-            conn,
-            tx);
-
-        if (jaExiste)
-        {
-            tx.Commit();
-            return Unit.Value;
-        }
-
-        var movimento = Movimento.Criar(
-            conta.IdContaCorrente,
-            request.IdentificacaoRequisicao,
-            request.Valor,
-            tipoMovimento,
-            null);
-
-        await _movimentoRepository.InserirAsync(movimento, conn, tx);
-        tx.Commit();
-
-        if (_producer != null)
-        {
-            await _producer.ProduceAsync("movimento", new
+            if (tipoMovimento == TipoMovimento.Debito)
             {
-                IdMovimento = movimento.IdMovimento,
-                IdContaCorrente = movimento.IdContaCorrente,
-                Valor = movimento.Valor,
-                Tipo = movimento.Tipo.ToString(),
-                Data = movimento.DataHora
-            });
+                var saldo = await _movimentoRepository.CalcularSaldoAsync(
+                    conta.IdContaCorrente,
+                    conn,
+                    tx);
+
+                conta.ValidarDebito(saldo, request.Valor);
+            }
+
+            var jaExiste = await _movimentoRepository.ExistePorIdempotenciaAsync(
+                conta.IdContaCorrente,
+                request.IdentificacaoRequisicao,
+                conn,
+                tx);
+
+            if (jaExiste)
+            {
+                _uow.Commit();
+                return Unit.Value;
+            }
+
+            var movimento = Movimento.Criar(
+                conta.IdContaCorrente,
+                request.IdentificacaoRequisicao,
+                request.Valor,
+                tipoMovimento,
+                null);
+
+            await _movimentoRepository.InserirAsync(movimento, conn, tx);
+
+            _uow.Commit();
+
+            // if (_producer != null)
+            // {
+            //     await _producer.ProduceAsync("movimento", new
+            //     {
+            //         IdMovimento = movimento.IdMovimento,
+            //         IdContaCorrente = movimento.IdContaCorrente,
+            //         Valor = movimento.Valor,
+            //         Tipo = movimento.Tipo.ToString(),
+            //         Data = movimento.DataHora.ToString("O")
+            //     });
+            // }
+        }
+        catch
+        {
+            _uow.Rollback();
+            throw;
         }
 
         return Unit.Value;

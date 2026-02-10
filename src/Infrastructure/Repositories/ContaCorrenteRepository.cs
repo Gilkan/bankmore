@@ -83,7 +83,7 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
         {
             await connection.ExecuteAsync(sql, new
             {
-                Id = (object)(_useStringGuids ? conta.IdContaCorrente.ToString() : conta.IdContaCorrente),
+                Id = _useStringGuids ? conta.IdContaCorrente.ToString() : conta.IdContaCorrente,
                 conta.Numero,
                 conta.Nome,
                 Cpf = conta.Cpf.Value,
@@ -120,7 +120,7 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
             if (dto is null) return null;
 
             return ContaCorrente.Hydrate(
-                Guid.Parse(dto.IdContaCorrente),
+                _useStringGuids ? dto.IdContaCorrente : Guid.Parse(dto.IdContaCorrente),
                 dto.Numero,
                 dto.Nome,
                 dto.Cpf,
@@ -135,7 +135,7 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
         }
     }
 
-    public async Task<ContaCorrente?> ObterPorIdAsync(Guid idContaCorrente, IDbConnection? conn = null, IDbTransaction? tx = null)
+    public async Task<ContaCorrente?> ObterPorIdAsync(object idContaCorrente, IDbConnection? conn = null, IDbTransaction? tx = null)
     {
         var connection = conn ?? _factory.Create();
         try
@@ -154,11 +154,11 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
                 LIMIT 1;
             """;
 
-            var dto = await connection.QuerySingleOrDefaultAsync<ContaCorrenteDto>(sql, new { Id = (object)(_useStringGuids ? idContaCorrente.ToString() : idContaCorrente) }, tx);
+            var dto = await connection.QuerySingleOrDefaultAsync<ContaCorrenteDto>(sql, new { Id = _useStringGuids ? idContaCorrente.ToString() : idContaCorrente }, tx);
             if (dto is null) return null;
 
             return ContaCorrente.Hydrate(
-                Guid.Parse(dto.IdContaCorrente),
+                _useStringGuids ? dto.IdContaCorrente : Guid.Parse(dto.IdContaCorrente),
                 dto.Numero,
                 dto.Nome,
                 dto.Cpf,
@@ -192,7 +192,7 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
 
             var dtos = await connection.QueryAsync<ContaCorrenteDto>(sql, transaction: tx);
             return dtos.Select(dto => ContaCorrente.Hydrate(
-                Guid.Parse(dto.IdContaCorrente),
+                _useStringGuids ? dto.IdContaCorrente : Guid.Parse(dto.IdContaCorrente),
                 dto.Numero,
                 dto.Nome,
                 dto.Cpf,
@@ -207,7 +207,7 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
         }
     }
 
-    public async Task<int> AtualizarStatusAsync(Guid idContaCorrente, bool ativo, IDbConnection? conn = null, IDbTransaction? tx = null)
+    public async Task<int> AtualizarStatusAsync(object idContaCorrente, bool ativo, IDbConnection? conn = null, IDbTransaction? tx = null)
     {
         var connection = conn ?? _factory.Create();
         try
@@ -220,7 +220,7 @@ public sealed class ContaCorrenteRepository : IContaCorrenteRepository
 
             return await connection.ExecuteAsync(sql, new
             {
-                IdContaCorrente = (object)(_useStringGuids ? idContaCorrente.ToString() : idContaCorrente),
+                IdContaCorrente = _useStringGuids ? idContaCorrente.ToString() : idContaCorrente,
                 Ativo = ativo
             }, tx);
         }
