@@ -87,6 +87,9 @@ Infrastructure concerns are kept out of the domain and application logic wheneve
 - Shared connection + transaction per test
 - Deterministic and isolated execution
 - No reliance on ambient transactions or auto-commit behavior
+- **HTTP end-to-end integration test** for transfers, fully exercising API and JWT authentication
+- Kafka producer calls can be temporarily disabled via test flags
+- Tests are fully self-contained and do not require Kafka or Docker
 
 Tests intentionally mirror production transaction flows to surface correctness issues early.
 
@@ -99,10 +102,10 @@ Tests intentionally mirror production transaction flows to surface correctness i
 SQLite is used intentionally for development and testing to enforce discipline:
 
 - No nested transactions
-- Weak native GUID support
-- Easy to misuse auto-commit
+- Clear transaction boundaries
+- Strong deterministic behavior in tests
 
-Rather than hiding these limitations, the design **forces explicit handling**.
+Rather than hiding these constraints, the design **forces explicit handling**.
 
 ---
 
@@ -121,26 +124,19 @@ This makes transactional behavior explicit, predictable, and testable.
 
 ### GUID Handling
 
-- Domain model uses `Guid`
-- SQLite persists GUIDs as `TEXT` when configured
+- Domain model uses `Guid` as the canonical identifier type
+- Persistence may store GUIDs as `TEXT` or `Guid` depending on `UseStringGuids` setting
 - Conversion happens only at persistence boundaries
-- The domain remains infrastructure-agnostic
+- Tests and SQLite storage respect this setting to ensure deterministic behavior
 
 ---
 
 ## Unit of Work
 
 - Runtime implementation: `SqliteUnitOfWork`
-- Test implementation: `TestUnitOfWork`
-
-Responsibilities:
-
-- Open and own the database connection
-- Begin and control the transaction
-- Commit or rollback explicitly
-- Prevent unsafe transactional behavior under SQLite
-
-Tests reuse an existing transaction to preserve determinism.
+- Test implementation: `TestUnitOfWork` with shared connection
+- Handlers and tests rely on explicit transaction boundaries
+- Tests use a single shared transaction to preserve determinism
 
 ---
 
@@ -157,6 +153,13 @@ Kafka is included as an **optional integration mechanism**, not a core dependenc
 - Application runs normally if Kafka is not configured
 
 Kafka is used strictly as an **integration channel**, not as a source of truth.
+
+### Test & Temporary Notes
+
+- Kafka producer calls in tests can be **temporarily disabled** via test flags
+- Integration tests do **not require a real Kafka instance**
+- Full consumer or outbox integration is not implemented
+- Future work may add self-contained Kafka integration tests
 
 ### Explicit Non-Goals
 
@@ -210,6 +213,7 @@ This setup allows:
 - Transfer fees
 - Idempotency behavior
 - Transaction correctness
+- **HTTP end-to-end integration test** for transfers
 
 ### Characteristics
 
@@ -217,8 +221,7 @@ This setup allows:
 - Explicit transaction control
 - Deterministic execution
 - No shared state between tests
-
-The tests are designed to **fail loudly** if transactional rules are violated.
+- Kafka can be disabled for self-contained execution
 
 ---
 
